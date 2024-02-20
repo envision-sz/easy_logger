@@ -175,6 +175,7 @@ typedef struct {
 /* EasyLogger error code */
 typedef enum {
     ELOG_NO_ERR,
+    ELOG_INIT_FAIL,
 } ElogErrCode;
 
 /* elog.c */
