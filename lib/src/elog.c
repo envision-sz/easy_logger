@@ -127,7 +127,8 @@ static const char *level_output_info[] = {
         [ELOG_LVL_DEBUG]   = "D/",
         [ELOG_LVL_VERBOSE] = "V/",
 };
-
+/* The sequence number of the message */
+static uint32_t g_seq_num = 0;
 #ifdef ELOG_COLOR_ENABLE
 /* color output info */
 static const char *color_output_info[] = {
@@ -585,6 +586,11 @@ void elog_output(uint8_t level, const char *tag, const char *file, const char *f
     va_start(args, format);
     /* lock output */
     elog_output_lock();
+
+    // Add sequence number to the log line
+    char seq_num[12] = {0};
+    snprintf(seq_num, "#%d ", g_seq_num++);
+    log_len += elog_strcpy(log_len, log_buf + log_len, seq_num);
 
 #ifdef ELOG_COLOR_ENABLE
     /* add CSI start sign and color info */
