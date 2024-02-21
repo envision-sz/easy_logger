@@ -120,15 +120,15 @@ static EasyLogger elog;
 static char log_buf[ELOG_LINE_BUF_SIZE] = {0};
 /* level output info */
 static const char *level_output_info[] = {
-    [ELOG_LVL_ASSERT]  = "A/",
-    [ELOG_LVL_ERROR]   = "E/",
-    [ELOG_LVL_WARN]    = "W/",
-    [ELOG_LVL_INFO]    = "I/",
-    [ELOG_LVL_DEBUG]   = "D/",
-    [ELOG_LVL_VERBOSE] = "V/",
+    [ELOG_LVL_ASSERT]  = "[Assert]",
+    [ELOG_LVL_ERROR]   = "[Error]",
+    [ELOG_LVL_WARN]    = "[Warn]",
+    [ELOG_LVL_INFO]    = "[Info]",
+    [ELOG_LVL_DEBUG]   = "[Debug]",
+    [ELOG_LVL_VERBOSE] = "[Verbose]",
 };
 /* The sequence number of the message */
-static size_t g_seq_num = 0;
+static uint32_t g_seq_num = 0;
 #ifdef ELOG_COLOR_ENABLE
 /* color output info */
 static const char *color_output_info[] = {
@@ -640,7 +640,7 @@ void elog_output (uint8_t level, const char *tag, const char *file, const char *
 
     // Add sequence number to the log line
     char seq_num[12] = {0};
-    snprintf(seq_num, 12, "#%d ", g_seq_num++);
+    snprintf(seq_num, 12, "#%ld ", g_seq_num++);
     log_len += elog_strcpy(log_len, log_buf + log_len, seq_num);
 
 #ifdef ELOG_COLOR_ENABLE
@@ -657,6 +657,7 @@ void elog_output (uint8_t level, const char *tag, const char *file, const char *
     {
         log_len += elog_strcpy(log_len, log_buf + log_len, level_output_info[level]);
     }
+
     /* package tag info */
     if (get_fmt_enabled(level, ELOG_FMT_TAG))
     {
@@ -672,7 +673,6 @@ void elog_output (uint8_t level, const char *tag, const char *file, const char *
     /* package time, process and thread info */
     if (get_fmt_enabled(level, ELOG_FMT_TIME | ELOG_FMT_P_INFO | ELOG_FMT_T_INFO))
     {
-        log_len += elog_strcpy(log_len, log_buf + log_len, "[");
         /* package time info */
         if (get_fmt_enabled(level, ELOG_FMT_TIME))
         {
@@ -696,7 +696,7 @@ void elog_output (uint8_t level, const char *tag, const char *file, const char *
         {
             log_len += elog_strcpy(log_len, log_buf + log_len, elog_port_get_t_info());
         }
-        log_len += elog_strcpy(log_len, log_buf + log_len, "] ");
+        log_len += elog_strcpy(log_len, log_buf + log_len, " ");
     }
     /* package file directory and name, function name and line number info */
     if (get_fmt_enabled(level, ELOG_FMT_DIR | ELOG_FMT_FUNC | ELOG_FMT_LINE))
@@ -732,6 +732,9 @@ void elog_output (uint8_t level, const char *tag, const char *file, const char *
         }
         log_len += elog_strcpy(log_len, log_buf + log_len, ")");
     }
+    // Add the separator between the header and the log message
+    log_len += elog_strcpy(log_len, log_buf + log_len, " | ");
+
     /* package other log data to buffer. '\0' must be added in the end by vsnprintf. */
     fmt_result = vsnprintf(log_buf + log_len, ELOG_LINE_BUF_SIZE - log_len, format, args);
 
