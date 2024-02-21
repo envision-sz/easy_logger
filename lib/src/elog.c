@@ -148,8 +148,10 @@ static void elog_set_filter_tag_lvl_default (void);
 void (*elog_assert_hook)(const char *expr, const char *func, size_t line);
 
 extern void elog_port_output (const char *log, size_t size);
-extern void elog_port_output_lock (void);
-extern void elog_port_output_unlock (void);
+extern bool elog_port_output_lock (void);
+extern bool elog_port_output_unlock (void);
+extern bool elog_port_output_lock_isr (void);
+extern bool elog_port_output_unlock_isr (void);
 
 /**
  * EasyLogger initialize.
@@ -385,32 +387,48 @@ void elog_set_filter_kw (const char *keyword)
 /**
  * lock output
  */
-void elog_output_lock (void)
+bool elog_output_lock (bool is_isr)
 {
     if (elog.output_lock_enabled)
     {
-        elog_port_output_lock();
         elog.output_is_locked_before_disable = true;
+        if (is_isr)
+        {
+            return elog_port_output_lock_isr();
+        }
+        else
+        {
+            return elog_port_output_lock();
+        }
     }
     else
     {
         elog.output_is_locked_before_enable = true;
+        return true;
     }
 }
 
 /**
  * unlock output
  */
-void elog_output_unlock (void)
+bool elog_output_unlock (bool is_isr)
 {
     if (elog.output_lock_enabled)
     {
-        elog_port_output_unlock();
         elog.output_is_locked_before_disable = false;
+        if (is_isr)
+        {
+            return elog_port_output_unlock_isr();
+        }
+        else
+        {
+            return elog_port_output_unlock();
+        }
     }
     else
     {
         elog.output_is_locked_before_enable = false;
+        return true;
     }
 }
 
@@ -458,7 +476,7 @@ void elog_set_filter_tag_lvl (const char *tag, uint8_t level)
         return;
     }
 
-    elog_output_lock();
+    elog_output_lock(false);
     /* find the tag in arr */
     for (i = 0; i < ELOG_FILTER_TAG_LVL_MAX_NUM; i++)
     {
@@ -501,7 +519,7 @@ void elog_set_filter_tag_lvl (const char *tag, uint8_t level)
             }
         }
     }
-    elog_output_unlock();
+    elog_output_unlock(false);
 }
 
 /**
@@ -523,7 +541,7 @@ uint8_t elog_get_filter_tag_lvl (const char *tag)
         return level;
     }
 
-    elog_output_lock();
+    elog_output_lock(false);
     /* find the tag in arr */
     for (i = 0; i < ELOG_FILTER_TAG_LVL_MAX_NUM; i++)
     {
@@ -534,14 +552,14 @@ uint8_t elog_get_filter_tag_lvl (const char *tag)
             break;
         }
     }
-    elog_output_unlock();
+    elog_output_unlock(false);
 
     return level;
 }
 
 /**
  * output RAW format log
- *
+ * @warning It can't be used in the interrupt context.
  * @param format output format
  * @param ... args
  */
@@ -561,7 +579,7 @@ void elog_raw_output (const char *format, ...)
     va_start(args, format);
 
     /* lock output */
-    elog_output_lock();
+    elog_output_lock(false);
 
     /* package log data to buffer */
     fmt_result = vsnprintf(log_buf, ELOG_LINE_BUF_SIZE, format, args);
@@ -587,7 +605,7 @@ void elog_raw_output (const char *format, ...)
     elog_port_output(log_buf, log_len);
 #endif
     /* unlock output */
-    elog_output_unlock();
+    elog_output_unlock(false);
 
     va_end(args);
 }
@@ -604,7 +622,7 @@ void elog_raw_output (const char *format, ...)
  * @param ... args
  *
  */
-void elog_output (uint8_t level, const char *tag, const char *file, const char *func, const long line,
+void elog_output (bool is_isr, uint8_t level, const char *tag, const char *file, const char *func, const long line,
                   const char *format, ...)
 {
     extern const char *elog_port_get_time(void);
@@ -625,7 +643,7 @@ void elog_output (uint8_t level, const char *tag, const char *file, const char *
         return;
     }
     /* level filter */
-    if (level > elog.filter.level || level > elog_get_filter_tag_lvl(tag))
+    if (level > elog.filter.level)
     {
         return;
     }
@@ -635,8 +653,13 @@ void elog_output (uint8_t level, const char *tag, const char *file, const char *
     }
     /* args point to the first variable parameter */
     va_start(args, format);
-    /* lock output */
-    elog_output_lock();
+    bool is_success = elog_output_lock(is_isr);
+    if (!is_success)
+    {
+        // If we fail to get the lock, increase the sequence number to indicate a skipped log message
+        g_seq_num++;
+        return;
+    }
 
     // Add sequence number to the log line
     char seq_num[12] = {0};
@@ -749,7 +772,7 @@ void elog_output (uint8_t level, const char *tag, const char *file, const char *
         /* using max length */
         log_len = ELOG_LINE_BUF_SIZE;
     }
-    /* overflow check and reserve some space for CSI end sign and newline sign */
+/* overflow check and reserve some space for CSI end sign and newline sign */
 #ifdef ELOG_COLOR_ENABLE
     if (log_len + (sizeof(CSI_END) - 1) + newline_len > ELOG_LINE_BUF_SIZE)
     {
@@ -775,7 +798,7 @@ void elog_output (uint8_t level, const char *tag, const char *file, const char *
         if (!strstr(log_buf, elog.filter.keyword))
         {
             /* unlock output */
-            elog_output_unlock();
+            elog_output_unlock(is_isr);
             return;
         }
     }
@@ -790,7 +813,7 @@ void elog_output (uint8_t level, const char *tag, const char *file, const char *
 
     /* package newline sign */
     log_len += elog_strcpy(log_len, log_buf + log_len, ELOG_NEWLINE_SIGN);
-    /* output log */
+/* output log */
 #if defined(ELOG_ASYNC_OUTPUT_ENABLE)
     extern void elog_async_output(uint8_t level, const char *log, size_t size);
     elog_async_output(level, log_buf, log_len);
@@ -801,7 +824,7 @@ void elog_output (uint8_t level, const char *tag, const char *file, const char *
 elog_port_output(log_buf, log_len);
 #endif
     /* unlock output */
-    elog_output_unlock();
+    elog_output_unlock(is_isr);
 }
 
 /**
@@ -954,7 +977,7 @@ const char *elog_find_tag (const char *log, uint8_t lvl, size_t *tag_len)
 
 /**
  * dump the hex format data to log
- *
+ * @warning It can't be used in the interrupt context.
  * @param name name for hex object, it will show on log header
  * @param width hex number for every line, such as: 16, 32
  * @param buf hex buffer
@@ -986,7 +1009,7 @@ void elog_hexdump (const char *name, uint8_t width, const void *buf, uint16_t si
     }
 
     /* lock output */
-    elog_output_lock();
+    elog_output_lock(false);
 
     for (i = 0; i < size; i += width)
     {
@@ -1047,5 +1070,5 @@ void elog_hexdump (const char *name, uint8_t width, const void *buf, uint16_t si
 #endif
     }
     /* unlock output */
-    elog_output_unlock();
+    elog_output_unlock(false);
 }

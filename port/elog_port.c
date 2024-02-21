@@ -25,7 +25,7 @@
  * Function: Portable interface for each platform.
  * Created on: 2015-04-28
  */
- 
+
 #include <elog.h>
 
 /**
@@ -33,11 +33,12 @@
  *
  * @return result
  */
-ElogErrCode elog_port_init(void) {
+ElogErrCode elog_port_init (void)
+{
     ElogErrCode result = ELOG_NO_ERR;
 
     /* add your code here */
-    
+
     return result;
 }
 
@@ -45,10 +46,10 @@ ElogErrCode elog_port_init(void) {
  * EasyLogger port deinitialize
  *
  */
-void elog_port_deinit(void) {
+void elog_port_deinit (void)
+{
 
     /* add your code here */
-
 }
 
 /**
@@ -57,28 +58,46 @@ void elog_port_deinit(void) {
  * @param log output of log
  * @param size log size
  */
-void elog_port_output(const char *log, size_t size) {
-    
+void elog_port_output (const char *log, size_t size)
+{
+
     /* add your code here */
-    
 }
 
 /**
  * output lock
  */
-void elog_port_output_lock(void) {
-    
+bool elog_port_output_lock (void)
+{
+
     /* add your code here */
-    
 }
 
 /**
  * output unlock
  */
-void elog_port_output_unlock(void) {
-    
+bool elog_port_output_unlock (void)
+{
+
     /* add your code here */
-    
+}
+
+/**
+ * output lock in interrupt context
+ */
+bool elog_port_output_lock_isr (void)
+{
+
+    /* add your code here */
+}
+
+/**
+ * output unlock in interrupt context
+ */
+bool elog_port_output_unlock_isr (void)
+{
+
+    /* add your code here */
 }
 
 /**
@@ -86,10 +105,10 @@ void elog_port_output_unlock(void) {
  *
  * @return current time
  */
-const char *elog_port_get_time(void) {
-    
+const char *elog_port_get_time (void)
+{
+
     /* add your code here */
-    
 }
 
 /**
@@ -97,10 +116,10 @@ const char *elog_port_get_time(void) {
  *
  * @return current process name
  */
-const char *elog_port_get_p_info(void) {
-    
+const char *elog_port_get_p_info (void)
+{
+
     /* add your code here */
-    
 }
 
 /**
@@ -108,8 +127,8 @@ const char *elog_port_get_p_info(void) {
  *
  * @return current thread name
  */
-const char *elog_port_get_t_info(void) {
-    
+const char *elog_port_get_t_info (void)
+{
+
     /* add your code here */
-    
 }
