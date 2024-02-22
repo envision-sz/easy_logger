@@ -202,6 +202,8 @@ extern "C"
     {
         ELOG_NO_ERR,
         ELOG_INIT_FAIL,
+		ELOG_INPUT_ERR,
+		ELOG_NO_LOG,
     } ElogErrCode;
 
     /* elog.c */
@@ -226,7 +228,6 @@ extern "C"
     void        elog_assert_set_hook (void (*hook)(const char *expr, const char *func, size_t line));
     int8_t      elog_find_lvl (const char *log);
     const char *elog_find_tag (const char *log, uint8_t lvl, size_t *tag_len);
-    void        elog_hexdump (const char *name, uint8_t width, const void *buf, uint16_t size);
 
 #define elog_a(tag, ...) elog_assert(tag, __VA_ARGS__)
 #define elog_e(tag, ...) elog_error(tag, __VA_ARGS__)
@@ -307,16 +308,25 @@ extern "C"
 
     /* elog_async.c */
     void   elog_async_enabled (bool enabled);
-    size_t elog_async_get_log (char *log, size_t size);
-    size_t elog_async_get_line_log (char *log, size_t size);
+    ElogErrCode elog_async_get_line_log (char *log, size_t size);
 
     /* elog_utils.c */
     size_t elog_strcpy (size_t cur_len, char *dst, const char *src);
     size_t elog_cpyln (char *line, const char *log, size_t len);
     void  *elog_memcpy (void *dst, const void *src, size_t count);
 
-#ifdef __cplusplus
-}
-#endif
+    // 64bit timestamp
+    typedef struct
+    {
+        uint32_t low;
+        uint32_t high;
+    } elog_timestamp_t;
 
+    typedef struct
+    {
+        uint32_t         message_length;
+        uint32_t         seq_num;
+        uint8_t          level;
+        elog_timestamp_t timestamp;
+    } elog_header_t;
 #endif /* __ELOG_H__ */
