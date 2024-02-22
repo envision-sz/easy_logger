@@ -571,84 +571,7 @@ void elog_output (bool is_isr, uint8_t level, const char *tag, const char *file,
 
     log_header.timestamp = elog_port_get_time();
 
-    ///* package tag info */
-    // if (get_fmt_enabled(level, ELOG_FMT_TAG))
-    //{
-    // log_len += elog_strcpy(log_len, line_log_buf + log_len, tag);
-    ///* if the tag length is less than 50% ELOG_FILTER_TAG_MAX_LEN, then fill space */
-    // if (tag_len <= ELOG_FILTER_TAG_MAX_LEN / 2)
-    //{
-    // memset(tag_sapce, ' ', ELOG_FILTER_TAG_MAX_LEN / 2 - tag_len);
-    // log_len += elog_strcpy(log_len, line_log_buf + log_len, tag_sapce);
-    //}
-    // log_len += elog_strcpy(log_len, line_log_buf + log_len, " ");
-    //}
-    /* package time, process and thread info */
-    // if (get_fmt_enabled(level, ELOG_FMT_TIME | ELOG_FMT_P_INFO | ELOG_FMT_T_INFO))
-    //{
-    ///* package time info */
-    // if (get_fmt_enabled(level, ELOG_FMT_TIME))
-    //{
-    // log_len += elog_strcpy(log_len, line_log_buf + log_len, elog_port_get_time());
-    // if (get_fmt_enabled(level, ELOG_FMT_P_INFO | ELOG_FMT_T_INFO))
-    //{
-    // log_len += elog_strcpy(log_len, line_log_buf + log_len, " ");
-    //}
-    //}
-    /* package process info */
-    // if (get_fmt_enabled(level, ELOG_FMT_P_INFO))
-    //{
-    // log_len += elog_strcpy(log_len, line_log_buf + log_len, elog_port_get_p_info());
-    // if (get_fmt_enabled(level, ELOG_FMT_T_INFO))
-    //{
-    // log_len += elog_strcpy(log_len, line_log_buf + log_len, " ");
-    //}
-    //}
-    /* package thread info */
-    // if (get_fmt_enabled(level, ELOG_FMT_T_INFO))
-    //{
-    // log_len += elog_strcpy(log_len, line_log_buf + log_len, elog_port_get_t_info());
-    //}
-    // log_len += elog_strcpy(log_len, line_log_buf + log_len, " ");
-    //}
-    /* package file directory and name, function name and line number info */
-    // if (get_fmt_enabled(level, ELOG_FMT_DIR | ELOG_FMT_FUNC | ELOG_FMT_LINE))
-    //{
-    // log_len += elog_strcpy(log_len, line_log_buf + log_len, "(");
-    ///* package file info */
-    // if (get_fmt_enabled(level, ELOG_FMT_DIR))
-    //{
-    // log_len += elog_strcpy(log_len, line_log_buf + log_len, file);
-    // if (get_fmt_enabled(level, ELOG_FMT_FUNC))
-    //{
-    // log_len += elog_strcpy(log_len, line_log_buf + log_len, ":");
-    //}
-    // else if (get_fmt_enabled(level, ELOG_FMT_LINE))
-    //{
-    // log_len += elog_strcpy(log_len, line_log_buf + log_len, " ");
-    //}
-    //}
-    ///* package line info */
-    // if (get_fmt_enabled(level, ELOG_FMT_LINE))
-    //{
-    // snprintf(line_num, ELOG_LINE_NUM_MAX_LEN, "%ld", line);
-    // log_len += elog_strcpy(log_len, line_log_buf + log_len, line_num);
-    // if (get_fmt_enabled(level, ELOG_FMT_FUNC))
-    //{
-    // log_len += elog_strcpy(log_len, line_log_buf + log_len, " ");
-    //}
-    //}
-    ///* package func info */
-    // if (get_fmt_enabled(level, ELOG_FMT_FUNC))
-    //{
-    // log_len += elog_strcpy(log_len, line_log_buf + log_len, func);
-    //}
-    // log_len += elog_strcpy(log_len, line_log_buf + log_len, ")");
-    //}
-    // Add the separator between the header and the log message
-    // log_len += elog_strcpy(log_len, line_log_buf + log_len, " | ");
-
-    /* skip the space for header and package other log data to buffer. '\0' must be added in the end by vsnprintf. */
+    /* skip the space for header and package other log data to buffer.*/
     size_t header_size = sizeof(elog_header_t);
     int    fmt_result  = vsnprintf(line_log_buf + header_size, ELOG_LINE_BUF_SIZE - header_size, format, args);
 
@@ -661,8 +584,9 @@ void elog_output (bool is_isr, uint8_t level, const char *tag, const char *file,
         return;
     }
 
-    if(fmt_result > (ELOG_LINE_BUF_SIZE - header_size)){
-    	fmt_result = ELOG_LINE_BUF_SIZE - header_size;
+    if (fmt_result > (ELOG_LINE_BUF_SIZE - header_size))
+    {
+        fmt_result = ELOG_LINE_BUF_SIZE - header_size;
     }
 
     size_t log_len = fmt_result;
@@ -688,27 +612,10 @@ void elog_output (bool is_isr, uint8_t level, const char *tag, const char *file,
     log_header.message_length = log_len;
     memcpy(line_log_buf, &log_header, sizeof(elog_header_t));
 
-    ///* keyword filter */
-    // if (elog.filter.keyword[0] != '\0')
-    //{
-    ///* add string end sign */
-    // line_log_buf[log_len] = '\0';
-    ///* find the keyword */
-    // if (!strstr(line_log_buf, elog.filter.keyword))
-    //{
-    ///* unlock output */
-    // elog_output_unlock(is_isr);
-    // return;
-    //}
-    //}
-
 /* output log */
 #if defined(ELOG_ASYNC_OUTPUT_ENABLE)
     extern void elog_async_output(uint8_t level, const char *log, size_t size);
     elog_async_output(level, line_log_buf, log_header.message_length + sizeof(elog_header_t));
-#elif defined(ELOG_BUF_OUTPUT_ENABLE)
-    extern void elog_buf_output(const char *log, size_t size);
-    elog_buf_output(line_log_buf, log_len);
 #else
     elog_port_output(line_log_buf, log_len);
 #endif
@@ -809,39 +716,4 @@ int8_t elog_find_lvl (const char *log)
         default:
             return -1;
     }
-}
-
-/**
- * find the log tag
- * @note make sure the log tag is output on each format
- * @note the tag don't have space in it
- *
- * @param log log buffer
- * @param lvl log level, you can get it by @see elog_find_lvl
- * @param tag_len found tag length
- *
- * @return log tag, found failed will return NULL
- */
-const char *elog_find_tag (const char *log, uint8_t lvl, size_t *tag_len)
-{
-    const char *tag = NULL, *tag_end = NULL;
-
-    ELOG_ASSERT(log);
-    ELOG_ASSERT(tag_len);
-    ELOG_ASSERT(lvl < ELOG_LVL_TOTAL_NUM);
-    /* make sure the log tag is output on each format */
-    ELOG_ASSERT(elog.enabled_fmt_set[lvl] & ELOG_FMT_TAG);
-
-    tag = log + strlen(level_output_info[lvl]);
-    /* find the first space after tag */
-    if ((tag_end = memchr(tag, ' ', ELOG_FILTER_TAG_MAX_LEN)) != NULL)
-    {
-        *tag_len = tag_end - tag;
-    }
-    else
-    {
-        tag = NULL;
-    }
-
-    return tag;
 }
