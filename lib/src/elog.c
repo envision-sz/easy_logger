@@ -35,29 +35,8 @@
 #include <stdio.h>
 #include <stdint.h>
 
-#if !defined(ELOG_OUTPUT_LVL)
-    #error "Please configure static output log level (in elog_cfg.h)"
-#endif
-
-#if !defined(ELOG_LINE_NUM_MAX_LEN)
-    #error "Please configure output line number max length (in elog_cfg.h)"
-#endif
-
-#if !defined(ELOG_FILTER_TAG_MAX_LEN)
-    #error "Please configure output filter's tag max length (in elog_cfg.h)"
-#endif
-
-#if !defined(ELOG_FILTER_KW_MAX_LEN)
-    #error "Please configure output filter's keyword max length (in elog_cfg.h)"
-#endif
-
 #if !defined(ELOG_NEWLINE_SIGN)
     #error "Please configure output newline sign (in elog_cfg.h)"
-#endif
-
-/* output filter's tag level max num */
-#ifndef ELOG_FILTER_TAG_LVL_MAX_NUM
-    #define ELOG_FILTER_TAG_LVL_MAX_NUM 4
 #endif
 
 /* EasyLogger object */
@@ -75,9 +54,6 @@ const char *level_output_info[] = {
     [ELOG_LVL_DEBUG]   = "[Debug]",
     [ELOG_LVL_VERBOSE] = "[Verbose]",
 };
-
-static bool get_fmt_enabled (uint8_t level, size_t set);
-static void elog_set_filter_tag_lvl_default (void);
 
 extern void elog_port_output (const char *log, size_t size);
 extern bool elog_port_output_lock (void);
@@ -114,12 +90,6 @@ ElogErrCode elog_init (void)
     /* output locked status initialize */
     elog.output_is_locked_before_enable  = false;
     elog.output_is_locked_before_disable = false;
-
-    /* set level is ELOG_LVL_VERBOSE */
-    elog_set_filter_lvl(ELOG_LVL_VERBOSE);
-
-    /* set tag_level to default val */
-    elog_set_filter_tag_lvl_default();
 
     elog.init_ok = true;
 
@@ -162,7 +132,7 @@ void elog_start (void)
     elog_async_enabled(true);
 
     /* show version */
-    log_i("EasyLogger V%s is initialize success.", ELOG_SW_VERSION);
+    elog_i("EasyLogger V%s is initialize success.", ELOG_SW_VERSION);
 }
 
 /**
@@ -181,7 +151,7 @@ void elog_stop (void)
     elog_async_enabled(false);
 
     /* show version */
-    log_i("EasyLogger V%s is deinitialize success.", ELOG_SW_VERSION);
+    elog_i("EasyLogger V%s is deinitialize success.", ELOG_SW_VERSION);
 }
 
 /**
@@ -202,61 +172,6 @@ void elog_set_output_enabled (bool enabled)
 bool elog_get_output_enabled (void)
 {
     return elog.output_enabled;
-}
-
-/**
- * set log output format. only enable or disable
- *
- * @param level level
- * @param set format set
- */
-void elog_set_fmt (uint8_t level, size_t set)
-{
-    elog.enabled_fmt_set[level] = set;
-}
-
-/**
- * set log filter all parameter
- *
- * @param level level
- * @param tag tag
- * @param keyword keyword
- */
-void elog_set_filter (uint8_t level, const char *tag, const char *keyword)
-{
-    elog_set_filter_lvl(level);
-    elog_set_filter_tag(tag);
-    elog_set_filter_kw(keyword);
-}
-
-/**
- * set log filter's level
- *
- * @param level level
- */
-void elog_set_filter_lvl (uint8_t level)
-{
-    elog.filter.level = level;
-}
-
-/**
- * set log filter's tag
- *
- * @param tag tag
- */
-void elog_set_filter_tag (const char *tag)
-{
-    strncpy(elog.filter.tag, tag, ELOG_FILTER_TAG_MAX_LEN);
-}
-
-/**
- * set log filter's keyword
- *
- * @param keyword keyword
- */
-void elog_set_filter_kw (const char *keyword)
-{
-    strncpy(elog.filter.keyword, keyword, ELOG_FILTER_KW_MAX_LEN);
 }
 
 /**
@@ -308,128 +223,6 @@ bool elog_output_unlock (bool is_isr)
 }
 
 /**
- * set log filter's tag level val to default
- */
-static void elog_set_filter_tag_lvl_default (void)
-{
-    uint8_t i = 0;
-
-    for (i = 0; i < ELOG_FILTER_TAG_LVL_MAX_NUM; i++)
-    {
-        memset(elog.filter.tag_lvl[i].tag, '\0', ELOG_FILTER_TAG_MAX_LEN + 1);
-        elog.filter.tag_lvl[i].level        = ELOG_FILTER_LVL_SILENT;
-        elog.filter.tag_lvl[i].tag_use_flag = false;
-    }
-}
-
-/**
- * Set the filter's level by different tag.
- * The log on this tag which level is less than it will stop output.
- *
- * example:
- *     // the example tag log enter silent mode
- *     elog_set_filter_tag_lvl("example", ELOG_FILTER_LVL_SILENT);
- *     // the example tag log which level is less than INFO level will stop output
- *     elog_set_filter_tag_lvl("example", ELOG_LVL_INFO);
- *     // remove example tag's level filter, all level log will resume output
- *     elog_set_filter_tag_lvl("example", ELOG_FILTER_LVL_ALL);
- *
- * @param tag log tag
- * @param level The filter level. When the level is ELOG_FILTER_LVL_SILENT, the log enter silent mode.
- *        When the level is ELOG_FILTER_LVL_ALL, it will remove this tag's level filer.
- *        Then all level log will resume output.
- *
- */
-void elog_set_filter_tag_lvl (const char *tag, uint8_t level)
-{
-    uint8_t i = 0;
-
-    if (!elog.init_ok)
-    {
-        return;
-    }
-
-    elog_output_lock(false);
-    /* find the tag in arr */
-    for (i = 0; i < ELOG_FILTER_TAG_LVL_MAX_NUM; i++)
-    {
-        if (elog.filter.tag_lvl[i].tag_use_flag == true
-            && !strncmp(tag, elog.filter.tag_lvl[i].tag, ELOG_FILTER_TAG_MAX_LEN))
-        {
-            break;
-        }
-    }
-
-    if (i < ELOG_FILTER_TAG_LVL_MAX_NUM)
-    {
-        /* find OK */
-        if (level == ELOG_FILTER_LVL_ALL)
-        {
-            /* remove current tag's level filter when input level is the lowest level */
-            elog.filter.tag_lvl[i].tag_use_flag = false;
-            memset(elog.filter.tag_lvl[i].tag, '\0', ELOG_FILTER_TAG_MAX_LEN + 1);
-            elog.filter.tag_lvl[i].level = ELOG_FILTER_LVL_SILENT;
-        }
-        else
-        {
-            elog.filter.tag_lvl[i].level = level;
-        }
-    }
-    else
-    {
-        /* only add the new tag's level filer when level is not ELOG_FILTER_LVL_ALL */
-        if (level != ELOG_FILTER_LVL_ALL)
-        {
-            for (i = 0; i < ELOG_FILTER_TAG_LVL_MAX_NUM; i++)
-            {
-                if (elog.filter.tag_lvl[i].tag_use_flag == false)
-                {
-                    strncpy(elog.filter.tag_lvl[i].tag, tag, ELOG_FILTER_TAG_MAX_LEN);
-                    elog.filter.tag_lvl[i].level        = level;
-                    elog.filter.tag_lvl[i].tag_use_flag = true;
-                    break;
-                }
-            }
-        }
-    }
-    elog_output_unlock(false);
-}
-
-/**
- * get the level on tag's level filer
- *
- * @param tag tag
- *
- * @return It will return the lowest level when tag was not found.
- *         Other level will return when tag was found.
- */
-uint8_t elog_get_filter_tag_lvl (const char *tag)
-{
-    uint8_t i     = 0;
-    uint8_t level = ELOG_FILTER_LVL_ALL;
-
-    if (!elog.init_ok)
-    {
-        return level;
-    }
-
-    elog_output_lock(false);
-    /* find the tag in arr */
-    for (i = 0; i < ELOG_FILTER_TAG_LVL_MAX_NUM; i++)
-    {
-        if (elog.filter.tag_lvl[i].tag_use_flag == true
-            && !strncmp(tag, elog.filter.tag_lvl[i].tag, ELOG_FILTER_TAG_MAX_LEN))
-        {
-            level = elog.filter.tag_lvl[i].level;
-            break;
-        }
-    }
-    elog_output_unlock(false);
-
-    return level;
-}
-
-/**
  * output the log
  *
  * @param level level
@@ -449,15 +242,6 @@ void elog_output (bool is_isr, uint8_t level, const char *tag, const char *file,
     /* check output enabled */
     if (!elog.output_enabled)
     {
-        return;
-    }
-    /* level filter */
-    if (level > elog.filter.level)
-    {
-        return;
-    }
-    else if (!strstr(tag, elog.filter.tag))
-    { /* tag filter */
         return;
     }
 
@@ -535,27 +319,6 @@ void elog_output (bool is_isr, uint8_t level, const char *tag, const char *file,
 }
 
 /**
- * get format enabled
- *
- * @param level level
- * @param set format set
- *
- * @return enable or disable
- */
-static bool get_fmt_enabled (uint8_t level, size_t set)
-{
-
-    if (elog.enabled_fmt_set[level] & set)
-    {
-        return true;
-    }
-    else
-    {
-        return false;
-    }
-}
-
-/**
  * enable or disable logger output lock
  * @note disable this lock is not recommended except you want output system exception log
  *
@@ -577,34 +340,5 @@ void elog_output_lock_enabled (bool enabled)
             /* the output lock is locked before disable, and the lock will locking after enable */
             elog_port_output_unlock();
         }
-    }
-}
-
-/**
- * find the log level
- * @note make sure the log level is output on each format
- *
- * @param log log buffer
- *
- * @return log level, found failed will return -1
- */
-int8_t elog_find_lvl (const char *log)
-{
-    switch (log[0])
-    {
-        case 'A':
-            return ELOG_LVL_ASSERT;
-        case 'E':
-            return ELOG_LVL_ERROR;
-        case 'W':
-            return ELOG_LVL_WARN;
-        case 'I':
-            return ELOG_LVL_INFO;
-        case 'D':
-            return ELOG_LVL_DEBUG;
-        case 'V':
-            return ELOG_LVL_VERBOSE;
-        default:
-            return -1;
     }
 }
