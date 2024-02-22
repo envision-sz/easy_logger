@@ -37,9 +37,6 @@
     #define OUTPUT_LVL ELOG_LVL_ASSERT
 #endif /* ELOG_ASYNC_OUTPUT_LVL */
 
-/* Initialize OK flag */
-static bool init_ok = false;
-
 /* asynchronous output mode enabled flag */
 static bool is_enabled = false;
 
@@ -112,37 +109,4 @@ void elog_async_output (uint8_t level, const char *log, size_t size)
 void elog_async_enabled (bool enabled)
 {
     is_enabled = enabled;
-}
-
-/**
- * asynchronous output mode initialize
- *
- * @return result
- */
-ElogErrCode elog_async_init (void)
-{
-    ElogErrCode result = ELOG_NO_ERR;
-
-    if (init_ok)
-    {
-        return result;
-    }
-
-    init_ok = true;
-
-    return result;
-}
-
-/**
- * asynchronous output mode deinitialize
- *
- */
-void elog_async_deinit (void)
-{
-    if (!init_ok)
-    {
-        return;
-    }
-
-    init_ok = false;
 }

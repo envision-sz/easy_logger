@@ -57,26 +57,6 @@ extern "C"
 /* EasyLogger software version number */
 #define ELOG_SW_VERSION "2.2.99"
 
-/* EasyLogger assert for developer. */
-#ifdef ELOG_ASSERT_ENABLE
-    #define ELOG_ASSERT(EXPR)                                                                                          \
-        if (!(EXPR))                                                                                                   \
-        {                                                                                                              \
-            if (elog_assert_hook == NULL)                                                                              \
-            {                                                                                                          \
-                elog_a("elog", "(%s) has assert failed at %s:%ld.", #EXPR, __FUNCTION__, __LINE__);                    \
-                while (1)                                                                                              \
-                    ;                                                                                                  \
-            }                                                                                                          \
-            else                                                                                                       \
-            {                                                                                                          \
-                elog_assert_hook(#EXPR, __FUNCTION__, __LINE__);                                                       \
-            }                                                                                                          \
-        }
-#else
-    #define ELOG_ASSERT(EXPR) ((void)0);
-#endif
-
 #ifndef ELOG_OUTPUT_ENABLE
     #define elog_raw(...)
     #define elog_assert(tag, ...)
@@ -202,8 +182,8 @@ extern "C"
     {
         ELOG_NO_ERR,
         ELOG_INIT_FAIL,
-		ELOG_INPUT_ERR,
-		ELOG_NO_LOG,
+        ELOG_INPUT_ERR,
+        ELOG_NO_LOG,
     } ElogErrCode;
 
     /* elog.c */
@@ -224,8 +204,6 @@ extern "C"
     void elog_output (bool is_isr, uint8_t level, const char *tag, const char *file, const char *func, const long line,
                       const char *format, ...);
     void elog_output_lock_enabled (bool enabled);
-    extern void (*elog_assert_hook)(const char *expr, const char *func, size_t line);
-    void        elog_assert_set_hook (void (*hook)(const char *expr, const char *func, size_t line));
     int8_t      elog_find_lvl (const char *log);
     const char *elog_find_tag (const char *log, uint8_t lvl, size_t *tag_len);
 
@@ -297,23 +275,9 @@ extern "C"
     #define log_v_isr(...) ((void)0);
 #endif
 
-/* assert API short definition */
-#if !defined(assert)
-    #define assert ELOG_ASSERT
-#endif
-
-    /* elog_buf.c */
-    void elog_buf_enabled (bool enabled);
-    void elog_flush (void);
-
     /* elog_async.c */
-    void   elog_async_enabled (bool enabled);
+    void        elog_async_enabled (bool enabled);
     ElogErrCode elog_async_get_line_log (char *log, size_t size);
-
-    /* elog_utils.c */
-    size_t elog_strcpy (size_t cur_len, char *dst, const char *src);
-    size_t elog_cpyln (char *line, const char *log, size_t len);
-    void  *elog_memcpy (void *dst, const void *src, size_t count);
 
     // 64bit timestamp
     typedef struct

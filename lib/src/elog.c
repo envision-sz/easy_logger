@@ -79,9 +79,6 @@ const char *level_output_info[] = {
 static bool get_fmt_enabled (uint8_t level, size_t set);
 static void elog_set_filter_tag_lvl_default (void);
 
-/* EasyLogger assert hook */
-void (*elog_assert_hook)(const char *expr, const char *func, size_t line);
-
 extern void elog_port_output (const char *log, size_t size);
 extern bool elog_port_output_lock (void);
 extern bool elog_port_output_unlock (void);
@@ -111,14 +108,6 @@ ElogErrCode elog_init (void)
     {
         return result;
     }
-
-#ifdef ELOG_ASYNC_OUTPUT_ENABLE
-    result = elog_async_init();
-    if (result != ELOG_NO_ERR)
-    {
-        return result;
-    }
-#endif
 
     /* enable the output lock */
     elog_output_lock_enabled(true);
@@ -151,10 +140,6 @@ void elog_deinit (void)
         return;
     }
 
-#ifdef ELOG_ASYNC_OUTPUT_ENABLE
-    elog_async_deinit();
-#endif
-
     /* port deinitialize */
     elog_port_deinit();
 
@@ -174,14 +159,10 @@ void elog_start (void)
     /* enable output */
     elog_set_output_enabled(true);
 
-#if defined(ELOG_ASYNC_OUTPUT_ENABLE)
     elog_async_enabled(true);
-#elif defined(ELOG_BUF_OUTPUT_ENABLE)
-    elog_buf_enabled(true);
-#endif
 
-    //    /* show version */
-    //    log_i("EasyLogger V%s is initialize success.", ELOG_SW_VERSION);
+    /* show version */
+    log_i("EasyLogger V%s is initialize success.", ELOG_SW_VERSION);
 }
 
 /**
@@ -197,11 +178,7 @@ void elog_stop (void)
     /* disable output */
     elog_set_output_enabled(false);
 
-#if defined(ELOG_ASYNC_OUTPUT_ENABLE)
     elog_async_enabled(false);
-#elif defined(ELOG_BUF_OUTPUT_ENABLE)
-    elog_buf_enabled(false);
-#endif
 
     /* show version */
     log_i("EasyLogger V%s is deinitialize success.", ELOG_SW_VERSION);
@@ -214,8 +191,6 @@ void elog_stop (void)
  */
 void elog_set_output_enabled (bool enabled)
 {
-    ELOG_ASSERT((enabled == false) || (enabled == true));
-
     elog.output_enabled = enabled;
 }
 
@@ -237,8 +212,6 @@ bool elog_get_output_enabled (void)
  */
 void elog_set_fmt (uint8_t level, size_t set)
 {
-    ELOG_ASSERT(level <= ELOG_LVL_VERBOSE);
-
     elog.enabled_fmt_set[level] = set;
 }
 
@@ -251,8 +224,6 @@ void elog_set_fmt (uint8_t level, size_t set)
  */
 void elog_set_filter (uint8_t level, const char *tag, const char *keyword)
 {
-    ELOG_ASSERT(level <= ELOG_LVL_VERBOSE);
-
     elog_set_filter_lvl(level);
     elog_set_filter_tag(tag);
     elog_set_filter_kw(keyword);
@@ -265,8 +236,6 @@ void elog_set_filter (uint8_t level, const char *tag, const char *keyword)
  */
 void elog_set_filter_lvl (uint8_t level)
 {
-    ELOG_ASSERT(level <= ELOG_LVL_VERBOSE);
-
     elog.filter.level = level;
 }
 
@@ -373,8 +342,6 @@ static void elog_set_filter_tag_lvl_default (void)
  */
 void elog_set_filter_tag_lvl (const char *tag, uint8_t level)
 {
-    ELOG_ASSERT(level <= ELOG_LVL_VERBOSE);
-    ELOG_ASSERT(tag != ((void *)0));
     uint8_t i = 0;
 
     if (!elog.init_ok)
@@ -438,7 +405,6 @@ void elog_set_filter_tag_lvl (const char *tag, uint8_t level)
  */
 uint8_t elog_get_filter_tag_lvl (const char *tag)
 {
-    ELOG_ASSERT(tag != ((void *)0));
     uint8_t i     = 0;
     uint8_t level = ELOG_FILTER_LVL_ALL;
 
@@ -464,59 +430,6 @@ uint8_t elog_get_filter_tag_lvl (const char *tag)
 }
 
 /**
- * output RAW format log
- * @warning It can't be used in the interrupt context.
- * @param format output format
- * @param ... args
- */
-void elog_raw_output (const char *format, ...)
-{
-    va_list args;
-    size_t  log_len = 0;
-    int     fmt_result;
-
-    /* check output enabled */
-    if (!elog.output_enabled)
-    {
-        return;
-    }
-
-    /* args point to the first variable parameter */
-    va_start(args, format);
-
-    /* lock output */
-    elog_output_lock(false);
-
-    /* package log data to buffer */
-    fmt_result = vsnprintf(line_log_buf, ELOG_LINE_BUF_SIZE, format, args);
-
-    /* output converted log */
-    if ((fmt_result > -1) && (fmt_result <= ELOG_LINE_BUF_SIZE))
-    {
-        log_len = fmt_result;
-    }
-    else
-    {
-        log_len = ELOG_LINE_BUF_SIZE;
-    }
-    /* output log */
-#if defined(ELOG_ASYNC_OUTPUT_ENABLE)
-    extern void elog_async_output(uint8_t level, const char *log, size_t size);
-    /* raw log will using assert level */
-    elog_async_output(ELOG_LVL_ASSERT, line_log_buf, log_len);
-#elif defined(ELOG_BUF_OUTPUT_ENABLE)
-    extern void elog_buf_output(const char *log, size_t size);
-    elog_buf_output(line_log_buf, log_len);
-#else
-    elog_port_output(line_log_buf, log_len);
-#endif
-    /* unlock output */
-    elog_output_unlock(false);
-
-    va_end(args);
-}
-
-/**
  * output the log
  *
  * @param level level
@@ -532,8 +445,6 @@ void elog_output (bool is_isr, uint8_t level, const char *tag, const char *file,
                   const char *format, ...)
 {
     extern elog_timestamp_t elog_port_get_time(void);
-
-    ELOG_ASSERT(level <= ELOG_LVL_VERBOSE);
 
     /* check output enabled */
     if (!elog.output_enabled)
@@ -633,7 +544,6 @@ void elog_output (bool is_isr, uint8_t level, const char *tag, const char *file,
  */
 static bool get_fmt_enabled (uint8_t level, size_t set)
 {
-    ELOG_ASSERT(level <= ELOG_LVL_VERBOSE);
 
     if (elog.enabled_fmt_set[level] & set)
     {
@@ -671,16 +581,6 @@ void elog_output_lock_enabled (bool enabled)
 }
 
 /**
- * Set a hook function to EasyLogger assert. It will run when the expression is false.
- *
- * @param hook the hook function
- */
-void elog_assert_set_hook (void (*hook)(const char *expr, const char *func, size_t line))
-{
-    elog_assert_hook = hook;
-}
-
-/**
  * find the log level
  * @note make sure the log level is output on each format
  *
@@ -690,15 +590,6 @@ void elog_assert_set_hook (void (*hook)(const char *expr, const char *func, size
  */
 int8_t elog_find_lvl (const char *log)
 {
-    ELOG_ASSERT(log);
-    /* make sure the log level is output on each format */
-    ELOG_ASSERT(elog.enabled_fmt_set[ELOG_LVL_ASSERT] & ELOG_FMT_LVL);
-    ELOG_ASSERT(elog.enabled_fmt_set[ELOG_LVL_ERROR] & ELOG_FMT_LVL);
-    ELOG_ASSERT(elog.enabled_fmt_set[ELOG_LVL_WARN] & ELOG_FMT_LVL);
-    ELOG_ASSERT(elog.enabled_fmt_set[ELOG_LVL_INFO] & ELOG_FMT_LVL);
-    ELOG_ASSERT(elog.enabled_fmt_set[ELOG_LVL_DEBUG] & ELOG_FMT_LVL);
-    ELOG_ASSERT(elog.enabled_fmt_set[ELOG_LVL_VERBOSE] & ELOG_FMT_LVL);
-
     switch (log[0])
     {
         case 'A':
