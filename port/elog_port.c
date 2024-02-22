@@ -27,6 +27,24 @@
  */
 
 #include <elog.h>
+#include <drivers/ps/rtc.h>
+#include <xil_printf.h>
+#include <stdio.h>
+#include <FreeRTOS.h>
+#include <semphr.h>
+#include <stdbool.h>
+#include <string.h>
+#include <stddef.h>
+
+#define TIMESTAMO_STR_LENGTH       100
+#define GET_LOG_MUTEX_TIMEOUT_MS   1000
+#define FORMATTED_LOG_LINE_MAX_LEN 1024
+
+static SemaphoreHandle_t g_log_output_lock = NULL;
+static StaticSemaphore_t g_log_output_lock_buf;
+static char              g_formatted_log[FORMATTED_LOG_LINE_MAX_LEN]; // For UART output
+
+static size_t format_log (const char *log_input, char *output, size_t size);
 
 /**
  * EasyLogger port initialize
@@ -65,24 +83,6 @@ void elog_port_output (const char *log, size_t size)
 }
 
 /**
- * output lock
- */
-bool elog_port_output_lock (void)
-{
-
-    /* add your code here */
-}
-
-/**
- * output unlock
- */
-bool elog_port_output_unlock (void)
-{
-
-    /* add your code here */
-}
-
-/**
  * output lock in interrupt context
  */
 bool elog_port_output_lock_isr (void)
@@ -96,7 +96,22 @@ bool elog_port_output_lock_isr (void)
  */
 bool elog_port_output_unlock_isr (void)
 {
+    /* add your code here */
+}
 
+/**
+ * output lock
+ */
+bool elog_port_output_lock (void)
+{
+    /* add your code here */
+}
+
+/**
+ * output unlock
+ */
+bool elog_port_output_unlock (void)
+{
     /* add your code here */
 }
 
@@ -105,30 +120,7 @@ bool elog_port_output_unlock_isr (void)
  *
  * @return current time
  */
-const char *elog_port_get_time (void)
+const elog_timestamp_t elog_port_get_time (void)
 {
-
-    /* add your code here */
-}
-
-/**
- * get current process name interface
- *
- * @return current process name
- */
-const char *elog_port_get_p_info (void)
-{
-
-    /* add your code here */
-}
-
-/**
- * get current thread name interface
- *
- * @return current thread name
- */
-const char *elog_port_get_t_info (void)
-{
-
     /* add your code here */
 }
